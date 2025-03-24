@@ -1,3 +1,11 @@
-rich>=10.0.0
-requests>=2.25.1
-beautifulsoup4>=4.9.3
+# Core dependencies
+requests>=2.28.0
+python-dotenv>=1.0.0
+rich>=13.3.0
+beautifulsoup4>=4.12.0
+
+# Optional dependencies for extended functionality
+# Uncomment if needed
+# paramiko>=3.0.0  # For SSH functionality if managing remote servers
+# psutil>=5.9.0    # For monitoring server processes
+# schedule>=1.2.0  # For scheduling server maintenance tasks
