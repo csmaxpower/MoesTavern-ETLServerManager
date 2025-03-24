@@ -7,7 +7,7 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Repository URL - replace this with your actual repository
+# Repository URL
 REPO_URL="https://github.com/csmaxpower/MoesTavern-ETLServerManager.git"
 INSTALL_DIR="$HOME/etlegacy-server-manager"
 
@@ -32,9 +32,11 @@ check_dependencies() {
         missing_deps+=("python3")
     else
         python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-        if (( $(echo "$python_version < 3.8" | bc -l) )); then
+        if (( $(echo "$python_version < 3.8" | bc -l 2>/dev/null) )); then
             print_message "Python version $python_version detected. Version 3.8 or higher is required." "$RED"
             missing_deps+=("python3.8+")
+        else
+            print_message "Python version $python_version detected. This is compatible." "$GREEN"
         fi
     fi
     
@@ -48,9 +50,17 @@ check_dependencies() {
         missing_deps+=("git")
     fi
     
-    # Check for virtualenv
-    if ! command_exists virtualenv; then
-        missing_deps+=("virtualenv")
+    # Check for virtualenv - Install it if missing but Python is available
+    if ! python3 -c "import virtualenv" 2>/dev/null; then
+        if command_exists pip3; then
+            print_message "virtualenv not found. Installing..." "$YELLOW"
+            pip3 install virtualenv
+            if [ $? -ne 0 ]; then
+                missing_deps+=("virtualenv")
+            fi
+        else
+            missing_deps+=("virtualenv")
+        fi
     fi
     
     # If there are missing dependencies, print them and exit
@@ -64,6 +74,9 @@ check_dependencies() {
         print_message "\nPlease install the missing dependencies. For example:" "$YELLOW"
         if [[ "${missing_deps[*]}" =~ "python3" ]]; then
             echo "  sudo apt-get update && sudo apt-get install python3 python3-pip"
+        fi
+        if [[ "${missing_deps[*]}" =~ "pip3" ]]; then
+            echo "  sudo apt-get install python3-pip"
         fi
         if [[ "${missing_deps[*]}" =~ "virtualenv" ]]; then
             echo "  pip3 install virtualenv"
@@ -124,24 +137,52 @@ setup_repository() {
 setup_environment() {
     print_message "Setting up virtual environment..." "$BLUE"
     
+    cd "$INSTALL_DIR" || exit 1
+    
     # Create virtual environment if it doesn't exist
     if [ ! -d "$INSTALL_DIR/venv" ]; then
-        cd "$INSTALL_DIR" || exit 1
-        virtualenv venv
+        python3 -m venv venv
         if [ $? -ne 0 ]; then
-            print_message "Failed to create virtual environment." "$RED"
-            exit 1
+            print_message "Failed to create virtual environment with venv. Trying virtualenv..." "$YELLOW"
+            python3 -m virtualenv venv
+            if [ $? -ne 0 ]; then
+                print_message "Failed to create virtual environment." "$RED"
+                exit 1
+            fi
         fi
     fi
     
     # Activate virtual environment and install dependencies
     print_message "Installing dependencies..." "$BLUE"
-    cd "$INSTALL_DIR" || exit 1
-    source venv/bin/activate
-    pip install -r requirements.txt
-    if [ $? -ne 0 ]; then
-        print_message "Failed to install dependencies." "$RED"
+    
+    # Source might not work in some shells, try different approaches
+    if [ -f "$INSTALL_DIR/venv/bin/activate" ]; then
+        source "$INSTALL_DIR/venv/bin/activate" || . "$INSTALL_DIR/venv/bin/activate"
+    else
+        print_message "Could not find activation script for virtual environment." "$RED"
         exit 1
+    fi
+    
+    # Install dependencies
+    if [ -f "$INSTALL_DIR/requirements.txt" ]; then
+        pip install -r requirements.txt
+        if [ $? -ne 0 ]; then
+            print_message "Failed to install dependencies." "$RED"
+            exit 1
+        fi
+    else
+        print_message "requirements.txt not found. Creating basic requirements file..." "$YELLOW"
+        cat > "$INSTALL_DIR/requirements.txt" << EOF
+requests>=2.28.0
+python-dotenv>=1.0.0
+rich>=13.3.0
+beautifulsoup4>=4.12.0
+EOF
+        pip install -r requirements.txt
+        if [ $? -ne 0 ]; then
+            print_message "Failed to install dependencies." "$RED"
+            exit 1
+        fi
     fi
     
     print_message "Environment setup complete." "$GREEN"
@@ -152,7 +193,7 @@ run_application() {
     print_message "Starting ET: Legacy Server Manager..." "$BLUE"
     
     cd "$INSTALL_DIR" || exit 1
-    source venv/bin/activate
+    source venv/bin/activate || . venv/bin/activate
     
     # Create .env file if it doesn't exist
     if [ ! -f "$INSTALL_DIR/.env" ]; then
@@ -165,8 +206,20 @@ ETLEGACY_DEV_URL=https://etlegacy.com/workflow-files
 EOF
     fi
     
-    # Run the application
-    python3 etlegacy_manager.py
+    # Find the main Python file
+    MAIN_FILE=$(find . -maxdepth 1 -name "*.py" | grep -i -E "main|etlegacy|manager" | head -1)
+    if [ -z "$MAIN_FILE" ]; then
+        MAIN_FILE=$(find . -maxdepth 1 -name "*.py" | head -1)
+    fi
+    
+    if [ -z "$MAIN_FILE" ]; then
+        print_message "Could not find a Python file to run. Please check the repository." "$RED"
+        exit 1
+    else
+        # Run the application
+        print_message "Running $MAIN_FILE..." "$BLUE"
+        python3 "$MAIN_FILE"
+    fi
 }
 
 # Main execution
@@ -188,8 +241,22 @@ main() {
     cat > "$INSTALL_DIR/run.sh" << EOF
 #!/bin/bash
 cd "$INSTALL_DIR"
-source venv/bin/activate
-python3 etlegacy_manager.py
+source venv/bin/activate || . venv/bin/activate
+
+# Find the main Python file
+MAIN_FILE=\$(find . -maxdepth 1 -name "*.py" | grep -i -E "main|etlegacy|manager" | head -1)
+if [ -z "\$MAIN_FILE" ]; then
+    MAIN_FILE=\$(find . -maxdepth 1 -name "*.py" | head -1)
+fi
+
+if [ -z "\$MAIN_FILE" ]; then
+    echo "Could not find a Python file to run. Please check the repository."
+    exit 1
+else
+    # Run the application
+    echo "Running \$MAIN_FILE..."
+    python3 "\$MAIN_FILE"
+fi
 EOF
     chmod +x "$INSTALL_DIR/run.sh"
     
