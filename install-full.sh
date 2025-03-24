@@ -13,11 +13,17 @@ echo "-------------------------"
 # Install required packages
 echo "Installing required packages..."
 apt update
-apt install -y python3 python3-pip wget unzip
+apt install -y python3 python3-venv python3-pip wget unzip vsftpd
 
-# Install Python dependencies
+# Create a virtual environment
+echo "Setting up Python virtual environment..."
+VENV_DIR="/tmp/etlegacy-venv"
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
+
+# Install Python dependencies in the virtual environment
 echo "Installing Python dependencies..."
-pip3 install rich requests beautifulsoup4
+pip install rich requests beautifulsoup4
 
 # Create a Python script
 echo "Creating installer script..."
@@ -676,12 +682,17 @@ allow_writeable_chroot=YES
 if __name__ == "__main__":
     installer = ETLegacyInstaller()
     installer.run()
+    
 PYTHONEOF
 
 chmod +x "$SCRIPT_PATH"
 
-# Run the installer
+# Run the installer with the virtual environment's Python
 echo "Starting installer..."
-python3 "$SCRIPT_PATH"
+"$VENV_DIR/bin/python" "$SCRIPT_PATH"
+
+# Clean up
+echo "Cleaning up..."
+rm -rf "$VENV_DIR"
 
 echo "Installation script completed."
