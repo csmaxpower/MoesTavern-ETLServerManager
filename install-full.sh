@@ -8,7 +8,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Repository URL - replace this with your actual repository
-REPO_URL="https://github.com/yourusername/etlegacy-server-manager.git"
+REPO_URL="https://github.com/csmaxpower/MoesTavern-ETLServerManager.git"
 INSTALL_DIR="$HOME/etlegacy-server-manager"
 
 # Print a message with color
