@@ -24,7 +24,7 @@ mkdir -p "$TMP_DIR"
 cd "$TMP_DIR" || exit
 
 # Define repository URL
-REPO_URL="https://github.com/yourusername/etlegacy-installer/archive/main.zip"
+REPO_URL="https://github.com/csmaxpower/MoesTavern-ETLServerManager/archive/refs/heads/main.zip"
 
 # Download the installer
 echo "Downloading installer..."
